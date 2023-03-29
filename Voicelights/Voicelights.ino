@@ -13,7 +13,7 @@
 #define NUM_LEDS    50
 #define BRIGHTNESS  255
 #define LED_TYPE    WS2811
-#define COLOR_ORDER GRB
+#define COLOR_ORDER RGB
 CRGB leds[NUM_LEDS];
 
 #define UPDATES_PER_SECOND 100
@@ -33,10 +33,32 @@ long post_react = 0; // OLD SPIKE CONVERSION
 // RAINBOW WAVE SETTINGS
 int wheel_speed = 0;
 
+CRGB defaultColors[] = { CRGB(255, 255, 255),
+                         CRGB(213, 52, 235),
+                         CRGB(0, 255, 0),
+                         CRGB(0, 0, 255),
+                         CRGB(0, 0, 0)
+                         };
+
+CRGB currentColor = defaultColors[0];
+short int currentColorIndex = 0;
+unsigned long int lastColorChange = millis();
+unsigned long int defaultColorDelay = 3000;
+
+void changeDefaultColor()
+{
+  if(millis() - lastColorChange > defaultColorDelay){
+    currentColorIndex = (currentColorIndex + 1) % (sizeof(defaultColors) / sizeof(defaultColors[0]));
+    currentColor = defaultColors[currentColorIndex];
+    lastColorChange = millis();
+  }
+}
+
+
 void setup()
 {
   // LED LIGHTING SETUP
-  delay( 3000 ); // power-up safety delay
+  //delay( 3000 ); // power-up safety delay
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
   FastLED.setBrightness(  BRIGHTNESS );
 
@@ -83,8 +105,8 @@ void set_lights()
       leds[NUM_LEDS / 2 + i] = Scroll(c);
       leds[NUM_LEDS / 2 - i - 1] = Scroll(c);
     } else {
-      leds[NUM_LEDS / 2 + i] = CRGB(0, 0, 0);
-      leds[NUM_LEDS / 2 - i - 1] = CRGB(0, 0, 0);
+      leds[NUM_LEDS / 2 + i] = currentColor;
+      leds[NUM_LEDS / 2 - i - 1] = currentColor;
     }
   }
   FastLED.show(); 
@@ -116,7 +138,7 @@ void loop()
 
   if (audio_input > 0)
   {
-    pre_react = log(((long)NUM_LEDS * (long)audio_input) / (1023L / 6)) * 7; // 1023/6 = 170.5 // TRANSLATE AUDIO LEVEL TO NUMBER OF LEDs
+    pre_react = log(((long)NUM_LEDS * (long)audio_input) / (1023L / 6)) * 6; // 1023/6 = 170.5 // TRANSLATE AUDIO LEVEL TO NUMBER OF LEDs
 
     if (pre_react > react) // ONLY ADJUST LEVEL OF LED IF LEVEL HIGHER THAN CURRENT LEVEL
       react = pre_react;
@@ -124,6 +146,9 @@ void loop()
     Serial.print(audio_input);
     Serial.print(" -> ");
     Serial.println(pre_react);
+    if(audio_input >= 250){
+      changeDefaultColor();
+    }
   }
 
   set_lights(); // APPLY COLOR
